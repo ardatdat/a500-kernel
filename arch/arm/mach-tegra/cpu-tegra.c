@@ -181,8 +181,160 @@ module_exit(tegra_cpu_debug_exit);
 #else /* CONFIG_TEGRA_THERMAL_THROTTLE */
 #define tegra_cpu_is_throttling() (0)
 #define throttle_governor_speed(requested_speed) (requested_speed)
+////<<<<<<< HEAD
+////
+////void tegra_throttling_enable(bool enable)
+////=======
+#endif /* CONFIG_TEGRA_THERMAL_THROTTLE */
 
-void tegra_throttling_enable(bool enable)
+#ifdef CONFIG_TEGRA_EDP_LIMITS
+
+static const struct tegra_edp_limits *cpu_edp_limits;
+static int cpu_edp_limits_size;
+static int edp_thermal_index;
+static cpumask_t edp_cpumask;
+static unsigned int edp_limit;
+
+static void edp_update_limit(void)
+{
+	int i;
+	unsigned int limit = cpumask_weight(&edp_cpumask);
+
+	if (!cpu_edp_limits)
+		return;
+
+	BUG_ON((edp_thermal_index >= cpu_edp_limits_size) || (limit == 0));
+	limit = cpu_edp_limits[edp_thermal_index].freq_limits[limit - 1];
+
+	for (i = 0; freq_table[i].frequency != CPUFREQ_TABLE_END; i++) {
+		if (freq_table[i].frequency > limit) {
+			break;
+		}
+	}
+	BUG_ON(i == 0);	/* min freq above the limit or table empty */
+	edp_limit = freq_table[i-1].frequency;
+}
+
+static unsigned int edp_governor_speed(unsigned int requested_speed)
+{
+	if ((!cpu_edp_limits) || (requested_speed <= edp_limit))
+		return requested_speed;
+	else
+		return edp_limit;
+}
+
+int tegra_edp_update_thermal_zone(int temperature)
+{
+	int i;
+	int ret = 0;
+	int nlimits = cpu_edp_limits_size;
+	int index;
+
+	if (!cpu_edp_limits)
+		return -EINVAL;
+
+	index = nlimits - 1;
+
+	if (temperature < cpu_edp_limits[0].temperature) {
+		index = 0;
+	} else {
+		for (i = 0; i < (nlimits - 1); i++) {
+			if (temperature >= cpu_edp_limits[i].temperature &&
+			   temperature < cpu_edp_limits[i + 1].temperature) {
+				index = i + 1;
+				break;
+			}
+		}
+	}
+
+	mutex_lock(&tegra_cpu_lock);
+	edp_thermal_index = index;
+
+	/* Update cpu rate if cpufreq (at least on cpu0) is already started */
+	if (target_cpu_speed[0]) {
+		edp_update_limit();
+		tegra_cpu_cap_highest_speed(NULL);
+	}
+	mutex_unlock(&tegra_cpu_lock);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(tegra_edp_update_thermal_zone);
+
+static int tegra_cpu_edp_notify(
+	struct notifier_block *nb, unsigned long event, void *hcpu)
+{
+	int ret = 0;
+	unsigned int cpu_speed, new_speed;
+	int cpu = (long)hcpu;
+
+	switch (event) {
+	case CPU_UP_PREPARE:
+		mutex_lock(&tegra_cpu_lock);
+		cpu_set(cpu, edp_cpumask);
+		edp_update_limit();
+
+		cpu_speed = tegra_getspeed(0);
+		new_speed = edp_governor_speed(cpu_speed);
+		if (new_speed < cpu_speed) {
+			ret = tegra_update_cpu_speed(new_speed);
+			if (ret) {
+				cpu_clear(cpu, edp_cpumask);
+				edp_update_limit();
+			}
+
+			printk(KERN_DEBUG "tegra CPU:%sforce EDP limit %u kHz"
+				"\n", ret ? " failed to " : " ", new_speed);
+		}
+		mutex_unlock(&tegra_cpu_lock);
+		break;
+	case CPU_DEAD:
+		mutex_lock(&tegra_cpu_lock);
+		cpu_clear(cpu, edp_cpumask);
+		edp_update_limit();
+		tegra_cpu_cap_highest_speed(NULL);
+		mutex_unlock(&tegra_cpu_lock);
+		break;
+	}
+	return notifier_from_errno(ret);
+}
+
+static struct notifier_block tegra_cpu_edp_notifier = {
+	.notifier_call = tegra_cpu_edp_notify,
+};
+
+static void tegra_cpu_edp_init(bool resume)
+{
+	if (!cpu_edp_limits) {
+		if (!resume)
+			pr_info("cpu-tegra: no EDP table is provided\n");
+		return;
+	}
+
+	/* FIXME: use the highest temperature limits if sensor is not on-line?
+	 * If thermal zone is not set yet by the sensor, edp_thermal_index = 0.
+	 * Boot frequency allowed SoC to get here, should work till sensor is
+	 * initialized.
+	 */
+	edp_cpumask = *cpu_online_mask;
+	edp_update_limit();
+
+	if (!resume) {
+		register_hotcpu_notifier(&tegra_cpu_edp_notifier);
+		pr_info("cpu-tegra: init EDP limit: %u MHz\n", edp_limit/1000);
+	}
+}
+
+static void tegra_cpu_edp_exit(void)
+{
+	if (!cpu_edp_limits)
+		return;
+
+	unregister_hotcpu_notifier(&tegra_cpu_edp_notifier);
+}
+
+void tegra_init_cpu_edp_limits(const struct tegra_edp_limits *limits, int size)
+////>>>>>>> 7c9bb73... ARM: tegra: power: Update CPU EDP initialization
 {
 }
 #endif /* CONFIG_TEGRA_THERMAL_THROTTLE */

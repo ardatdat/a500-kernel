@@ -49,6 +49,12 @@ extern unsigned long tegra_grhost_aperture;
 
 extern struct sys_timer tegra_timer;
 
+#ifdef CONFIG_TEGRA_CONSERVATIVE_GOV_ON_EARLYSUPSEND
+void cpufreq_save_default_governor(void);
+void cpufreq_restore_default_governor(void);
+void cpufreq_set_conservative_governor(void);
+#endif
+
 enum board_fab {
 	BOARD_FAB_A = 0,
 	BOARD_FAB_B,

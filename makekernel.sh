@@ -7,7 +7,7 @@ export CROSS_COMPILE=arm-eabi-
 
 make tegra_defconfig
 
-make -j3 -B
+make -j3
 
 
 cp ./arch/arm/boot/zImage  /home/yiudou/kitchen168/BOOT-EXTRACTED/

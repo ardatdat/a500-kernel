@@ -150,7 +150,9 @@ void __init smp_init_cpus(void)
 	unsigned int i, ncores = scu_get_core_count(scu_base);
 
 	for (i = 0; i < ncores; i++)
-		cpu_set(i, cpu_possible_map);
+		set_cpu_possible(i, true);
+///		cpu_set(i, cpu_possible_map);
+
 }
 
 void __init smp_prepare_cpus(unsigned int max_cpus)

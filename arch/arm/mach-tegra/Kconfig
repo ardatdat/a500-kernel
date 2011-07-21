@@ -145,10 +145,3 @@ config TEGRA_MC_PROFILE
 	  When enabled, provides a mechanism to perform statistical
 	  sampling of the memory controller usage on a client-by-client
 	  basis, and report the log through sysfs.
-
-config TEGRA_CONSERVATIVE_GOV_ON_EARLYSUPSEND
-       bool "Use conservative cpu frequency govenor when device enters early suspend"
-       depends on HAS_EARLYSUSPEND && CPU_FREQ
-       default n
-       help
-	Also will restore to original cpu frequency govenor when device is resumed

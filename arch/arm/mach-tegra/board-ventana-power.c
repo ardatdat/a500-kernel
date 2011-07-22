@@ -42,15 +42,6 @@
 
 #define CHARGING_DISABLE	TEGRA_GPIO_PR6
 
-#ifdef CONFIG_MACH_ACER_VANGOGH
-#define GPIO_HIGH	1
-#define GPIO_LOW	0
-#define GPIO_ENABLE	1
-#define GPIO_DISABLE	0
-#define GPIO_OUTPUT	1
-#define GPIO_INPUT	0
-#endif
-
 int __init ventana_charge_init(void)
 {
 	gpio_request(CHARGING_DISABLE, "chg_disable");
@@ -98,6 +89,7 @@ static struct regulator_consumer_supply tps658621_ldo5_supply[] = {
 static struct regulator_consumer_supply tps658621_ldo6_supply[] = {
 	REGULATOR_SUPPLY("vdd_ldo6", NULL),
 	REGULATOR_SUPPLY("vcsi", "tegra_camera"),
+	REGULATOR_SUPPLY("vmic", "soc-audio"),
 };
 static struct regulator_consumer_supply tps658621_ldo7_supply[] = {
 	REGULATOR_SUPPLY("vdd_ldo7", NULL),
@@ -150,7 +142,7 @@ static struct regulator_init_data ldo0_data = REGULATOR_INIT(ldo0, 1250, 3300, O
 static struct regulator_init_data ldo1_data = REGULATOR_INIT(ldo1, 725, 1500, ON, NULL);
 static struct regulator_init_data ldo2_data = REGULATOR_INIT(ldo2, 725, 1500, OFF, NULL);
 static struct regulator_init_data ldo3_data = REGULATOR_INIT(ldo3, 1250, 3300, OFF, NULL);
-static struct regulator_init_data ldo4_data = REGULATOR_INIT(ldo4, 1700, 2475, OFF, NULL);
+static struct regulator_init_data ldo4_data = REGULATOR_INIT(ldo4, 1700, 2475, ON, NULL);
 static struct regulator_init_data ldo5_data = REGULATOR_INIT(ldo5, 1250, 3300, ON, NULL);
 static struct regulator_init_data ldo6_data = REGULATOR_INIT(ldo6, 1250, 1800, OFF, NULL);
 static struct regulator_init_data ldo7_data = REGULATOR_INIT(ldo7, 1250, 3300, OFF, NULL);
@@ -223,6 +215,10 @@ static struct tegra_suspend_platform_data ventana_suspend_data = {
 	.separate_req	= true,
 	.corereq_high	= false,
 	.sysclkreq_high	= true,
+//ddebug 	.wake_enb	= TEGRA_WAKE_GPIO_PV2 | TEGRA_WAKE_GPIO_PY6,
+//ddebug 	.wake_high	= 0,
+//ddebug 	.wake_low	= TEGRA_WAKE_GPIO_PV2 | TEGRA_WAKE_GPIO_PY6,
+//ddebug 	.wake_any	= 0,
 	.wake_enb	= TEGRA_WAKE_GPIO_PV3 |TEGRA_WAKE_GPIO_PC7 |TEGRA_WAKE_USB1_VBUS | TEGRA_WAKE_GPIO_PV2 | TEGRA_WAKE_GPIO_PS0,
 	.wake_high	= TEGRA_WAKE_GPIO_PC7,
 	.wake_low	= TEGRA_WAKE_GPIO_PV2,
@@ -278,91 +274,5 @@ fail:
 	gpio_free(TPS6586X_GPIO_BASE);
 	return ret;
 }
-
-#ifdef CONFIG_MACH_ACER_VANGOGH
-struct gpio_table{
-	const char *name;
-	int     gpio;
-	int     value;
-	int     enabled;
-	int     direction;
-};
-
-#define GPIO_CONFIG(_name, _gpio, _enabled, _value, _direction) \
-	{							\
-		.name = _name,                                  \
-		.gpio = _gpio,                                  \
-		.value = _value,                                \
-		.enabled = _enabled,                            \
-		.direction = _direction,                        \
-	}
-
-static struct gpio_table gpio_init_table[] = {
-	GPIO_CONFIG(NULL, TEGRA_GPIO_PD3, GPIO_ENABLE, GPIO_LOW, GPIO_OUTPUT),//27
-	GPIO_CONFIG(NULL, TEGRA_GPIO_PD5, GPIO_ENABLE, GPIO_LOW, GPIO_OUTPUT),//29
-        GPIO_CONFIG(NULL, TEGRA_GPIO_PG0, GPIO_ENABLE, GPIO_LOW, GPIO_OUTPUT),//48
-        GPIO_CONFIG(NULL, TEGRA_GPIO_PG1, GPIO_ENABLE, GPIO_LOW, GPIO_OUTPUT),//49
-        GPIO_CONFIG(NULL, TEGRA_GPIO_PG2, GPIO_ENABLE, GPIO_LOW, GPIO_OUTPUT),//50
-        GPIO_CONFIG(NULL, TEGRA_GPIO_PG3, GPIO_ENABLE, GPIO_LOW, GPIO_OUTPUT),//51
-        GPIO_CONFIG(NULL, TEGRA_GPIO_PH0, GPIO_ENABLE, GPIO_LOW, GPIO_OUTPUT),//56
-        GPIO_CONFIG(NULL, TEGRA_GPIO_PH2, GPIO_ENABLE, GPIO_LOW, GPIO_OUTPUT),//58
-        GPIO_CONFIG(NULL, TEGRA_GPIO_PH3, GPIO_ENABLE, GPIO_LOW, GPIO_OUTPUT),//59
-        GPIO_CONFIG(NULL, TEGRA_GPIO_PI4, GPIO_ENABLE, GPIO_LOW, GPIO_OUTPUT),//68
-        GPIO_CONFIG(NULL, TEGRA_GPIO_PK3, GPIO_ENABLE, GPIO_LOW, GPIO_OUTPUT),//83
-        GPIO_CONFIG(NULL, TEGRA_GPIO_PK5, GPIO_ENABLE, GPIO_LOW, GPIO_OUTPUT),//85
-        GPIO_CONFIG(NULL, TEGRA_GPIO_PM2, GPIO_ENABLE, GPIO_LOW, GPIO_OUTPUT),//98
-        GPIO_CONFIG(NULL, TEGRA_GPIO_PM3, GPIO_ENABLE, GPIO_LOW, GPIO_OUTPUT),//99
-        GPIO_CONFIG(NULL, TEGRA_GPIO_PM4, GPIO_ENABLE, GPIO_LOW, GPIO_OUTPUT),//100
-        GPIO_CONFIG(NULL, TEGRA_GPIO_PM5, GPIO_ENABLE, GPIO_LOW, GPIO_OUTPUT),//101
-        GPIO_CONFIG(NULL, TEGRA_GPIO_PM6, GPIO_ENABLE, GPIO_LOW, GPIO_OUTPUT),//102
-        GPIO_CONFIG(NULL, TEGRA_GPIO_PM7, GPIO_ENABLE, GPIO_LOW, GPIO_OUTPUT),//103
-        GPIO_CONFIG(NULL, TEGRA_GPIO_PP0, GPIO_ENABLE, GPIO_LOW, GPIO_OUTPUT),//120
-        GPIO_CONFIG(NULL, TEGRA_GPIO_PP1, GPIO_ENABLE, GPIO_LOW, GPIO_OUTPUT),//121
-        GPIO_CONFIG(NULL, TEGRA_GPIO_PP2, GPIO_ENABLE, GPIO_LOW, GPIO_OUTPUT),//122
-        GPIO_CONFIG(NULL, TEGRA_GPIO_PP3, GPIO_ENABLE, GPIO_LOW, GPIO_OUTPUT),//123
-        GPIO_CONFIG(NULL, TEGRA_GPIO_PR3, GPIO_ENABLE, GPIO_LOW, GPIO_OUTPUT),//139
-        GPIO_CONFIG(NULL, TEGRA_GPIO_PR4, GPIO_ENABLE, GPIO_LOW, GPIO_OUTPUT),//140
-        GPIO_CONFIG(NULL, TEGRA_GPIO_PR5, GPIO_ENABLE, GPIO_LOW, GPIO_OUTPUT),//141
-        GPIO_CONFIG(NULL, TEGRA_GPIO_PR7, GPIO_ENABLE, GPIO_LOW, GPIO_OUTPUT),//143
-        GPIO_CONFIG(NULL, TEGRA_GPIO_PS1, GPIO_ENABLE, GPIO_LOW, GPIO_OUTPUT),//145
-        GPIO_CONFIG(NULL, TEGRA_GPIO_PS2, GPIO_ENABLE, GPIO_LOW, GPIO_OUTPUT),//146
-        GPIO_CONFIG(NULL, TEGRA_GPIO_PS3, GPIO_ENABLE, GPIO_LOW, GPIO_OUTPUT),//147
-        GPIO_CONFIG(NULL, TEGRA_GPIO_PS4, GPIO_ENABLE, GPIO_LOW, GPIO_OUTPUT),//148
-        GPIO_CONFIG(NULL, TEGRA_GPIO_PT3, GPIO_ENABLE, GPIO_LOW, GPIO_OUTPUT),//155
-        GPIO_CONFIG(NULL, TEGRA_GPIO_PT4, GPIO_ENABLE, GPIO_LOW, GPIO_OUTPUT),//156
-        GPIO_CONFIG(NULL, TEGRA_GPIO_PU2, GPIO_ENABLE, GPIO_LOW, GPIO_OUTPUT),//162
-        GPIO_CONFIG(NULL, TEGRA_GPIO_PU3, GPIO_ENABLE, GPIO_LOW, GPIO_OUTPUT),//163
-        GPIO_CONFIG(NULL, TEGRA_GPIO_PU4, GPIO_ENABLE, GPIO_LOW, GPIO_OUTPUT),//164
-        GPIO_CONFIG(NULL, TEGRA_GPIO_PV7, GPIO_ENABLE, GPIO_LOW, GPIO_OUTPUT),//175
-        GPIO_CONFIG(NULL, TEGRA_GPIO_PX2, GPIO_ENABLE, GPIO_LOW, GPIO_OUTPUT),//186
-        GPIO_CONFIG(NULL, TEGRA_GPIO_PBB1, GPIO_ENABLE, GPIO_LOW, GPIO_OUTPUT),//217
-};
-
-void empty_gpio_init(void)
-{
-	int i;
-	int ret;
-	for ( i=0 ; i < ARRAY_SIZE(gpio_init_table); i++)
-	{
-		if (gpio_init_table[i].enabled)
-		{
-			gpio_request(gpio_init_table[i].gpio, gpio_init_table[i].name);
-			if (gpio_init_table[i].direction == GPIO_OUTPUT)
-			{
-				ret = gpio_direction_output(gpio_init_table[i].gpio, gpio_init_table[i].value);
-				if(ret)
-					pr_err("---%s:  GPIO(%d)  init error\n",__func__,gpio_init_table[i].gpio);
-			}
-			else if (gpio_init_table[i].direction == GPIO_INPUT)
-			{
-				gpio_direction_input(gpio_init_table[i].gpio);
-			}
-			else
-				pr_err("%s : GPIO neither output nor input \n");
-		}
-	}
-}
-#endif
-
 
 late_initcall(ventana_pcie_init);

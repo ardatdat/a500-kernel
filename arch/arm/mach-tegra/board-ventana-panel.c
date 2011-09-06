@@ -41,9 +41,11 @@
 #define ventana_bl_enb		TEGRA_GPIO_PD4
 #define ventana_lvds_shutdown	TEGRA_GPIO_PB2
 #define ventana_hdmi_hpd	TEGRA_GPIO_PN7
-#if defined(CONFIG_MACH_VENTANA)
-#define ventana_hdmi_enb	TEGRA_GPIO_PV5
-#endif
+//ddebug #define ventana_hdmi_enb	TEGRA_GPIO_PV5
+
+/*panel power on sequence timing*/
+#define ventana_pnl_to_lvds_ms	0
+#define ventana_lvds_to_bl_ms	200
 
 static struct regulator *ventana_hdmi_reg = NULL;
 static struct regulator *ventana_hdmi_pll = NULL;
@@ -83,7 +85,7 @@ static struct platform_pwm_backlight_data ventana_backlight_data = {
 	.pwm_id		= 2,
 	.max_brightness	= 255,
 	.dft_brightness	= 224,
-	.pwm_period_ns	= 41667,
+	.pwm_period_ns	= 4166667,
 	.init		= ventana_backlight_init,
 	.exit		= ventana_backlight_exit,
 	.notify		= ventana_backlight_notify,
@@ -106,14 +108,11 @@ static int ventana_panel_enable(void)
 	regulator_enable(reg);
 	regulator_put(reg);
 
-#if defined(CONFIG_MACH_ACER_VANGOGH)
-	gpio_set_value(ventana_lvds_shutdown, 1);
-#endif
 	gpio_set_value(ventana_pnl_pwr_enb, 1);
-	msleep(200);
-#if defined(CONFIG_MACH_ACER_PICASSO) || defined(CONFIG_MACH_ACER_MAYA)
+////	msleep(200);
+	mdelay(ventana_pnl_to_lvds_ms);
 	gpio_set_value(ventana_lvds_shutdown, 1);
-#endif
+	mdelay(ventana_lvds_to_bl_ms);
 	return 0;
 }
 
@@ -203,58 +202,37 @@ static struct resource ventana_disp2_resources[] = {
 
 static struct tegra_dc_mode ventana_panel_modes[] = {
 	{
-#if defined(CONFIG_MACH_ACER_PICASSO) || defined(CONFIG_MACH_ACER_MAYA)
-		.pclk = 70500000,
+		.pclk = 72072000,
 		.h_ref_to_sync = 11,
 		.v_ref_to_sync = 1,
 		.h_sync_width = 58,
 		.v_sync_width = 4,
 		.h_back_porch = 58,
 		.v_back_porch = 4,
-		.h_active = 1280,
-		.v_active = 800,
+//ddebug 		.h_active = 1366,
+//ddebug 		.v_active = 768,
+		.h_active = 1280, //ddebug
+		.v_active = 800,  //ddebug
 		.h_front_porch = 58,
 		.v_front_porch = 4,
-#endif
-#ifdef CONFIG_MACH_ACER_VANGOGH
-		.pclk = 54000000,
-		.h_ref_to_sync = 11,
-		.v_ref_to_sync = 1,
-		.h_sync_width = 20,
-		.v_sync_width = 5,
-		.h_back_porch = 150,
-		.v_back_porch = 5,
-		.h_active = 1024,
-		.v_active = 600,
-		.h_front_porch = 150,
-		.v_front_porch = 15,
-#endif
 	},
 };
 
 static struct tegra_fb_data ventana_fb_data = {
 	.win		= 0,
-#if defined(CONFIG_MACH_ACER_PICASSO) || defined(CONFIG_MACH_ACER_MAYA)
-	.xres		= 1280,
-	.yres		= 800,
-#endif
-#ifdef CONFIG_MACH_ACER_VANGOGH
-	.xres		= 1024,
-	.yres		= 600,
-#endif
+//ddebug 	.xres		= 1366,
+//ddebug 	.yres		= 768,
+	.xres		= 1280, //ddebug
+	.yres		= 800,  //ddebug
 	.bits_per_pixel	= 32,
 };
 
 static struct tegra_fb_data ventana_hdmi_fb_data = {
 	.win		= 0,
-#if defined(CONFIG_MACH_ACER_PICASSO) || defined(CONFIG_MACH_ACER_MAYA)
-	.xres		= 1280,
-	.yres		= 800,
-#endif
-#ifdef CONFIG_MACH_ACER_VANGOGH
-	.xres		= 1024,
-	.yres		= 600,
-#endif
+//ddebug 	.xres		= 1366,
+//ddebug 	.yres		= 768,
+	.xres		= 1280, //ddebug
+	.yres		= 800,  //ddebug
 	.bits_per_pixel	= 32,
 };
 
@@ -271,6 +249,7 @@ static struct tegra_dc_out ventana_disp1_out = {
 
 	.enable		= ventana_panel_enable,
 	.disable	= ventana_panel_disable,
+
 };
 
 static struct tegra_dc_out ventana_disp2_out = {
@@ -280,7 +259,7 @@ static struct tegra_dc_out ventana_disp2_out = {
 	.dcc_bus	= 1,
 	.hotplug_gpio	= ventana_hdmi_hpd,
 
-	.max_pixclock	= KHZ2PICOS(148500),
+///	.max_pixclock	= KHZ2PICOS(148500),
 
 	.align		= TEGRA_DC_ALIGN_MSB,
 	.order		= TEGRA_DC_ORDER_RED_BLUE,
@@ -394,11 +373,10 @@ int __init ventana_panel_init(void)
 	gpio_request(ventana_lvds_shutdown, "lvds_shdn");
 	gpio_direction_output(ventana_lvds_shutdown, 1);
 	tegra_gpio_enable(ventana_lvds_shutdown);
-#if defined(CONFIG_MACH_VENTANA)
-	tegra_gpio_enable(ventana_hdmi_enb);
-	gpio_request(ventana_hdmi_enb, "hdmi_5v_en");
-	gpio_direction_output(ventana_hdmi_enb, 1);
-#endif
+
+//ddebug 	tegra_gpio_enable(ventana_hdmi_enb);
+//ddebug 	gpio_request(ventana_hdmi_enb, "hdmi_5v_en");
+//ddebug 	gpio_direction_output(ventana_hdmi_enb, 1);
 
 	tegra_gpio_enable(ventana_hdmi_hpd);
 	gpio_request(ventana_hdmi_hpd, "hdmi_hpd");

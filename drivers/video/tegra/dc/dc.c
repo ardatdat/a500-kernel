@@ -363,7 +363,7 @@ out:
 	return ret;
 }
 
-static unsigned int tegra_dc_has_multiple_dc(void)
+unsigned int tegra_dc_has_multiple_dc(void)
 {
 	unsigned int idx;
 	unsigned int cnt = 0;
@@ -547,6 +547,9 @@ static unsigned int tegra_dc_windows_is_overlapped(struct tegra_dc_win *a,
 {
 	if (!WIN_IS_ENABLED(a) || !WIN_IS_ENABLED(b))
 		return 0;
+
+        /* because memory access to load the fifo can overlap, only care
+         * if windows overlap vertically */
 	return ((a->out_y + a->out_h > b->out_y) && (a->out_y <= b->out_y)) ||
 	       ((b->out_y + b->out_h > a->out_y) && (b->out_y <= a->out_y));
 }
@@ -554,21 +557,56 @@ static unsigned int tegra_dc_windows_is_overlapped(struct tegra_dc_win *a,
 static unsigned int tegra_dc_find_max_bandwidth(struct tegra_dc_win *wins[],
 						int n)
 {
-	/* We have n windows and knows their geometries and bandwidthes. If any
-	 * of them overlapped vertically, the overlapped area bandwidth get
-	 * combined.
+	unsigned i;
+	unsigned j;
+	unsigned overlap_count;
+	unsigned max_bw = 0;
+
+	WARN_ONCE(n > 3, "Code assumes at most 3 windows, bandwidth is likely"
+			 "inaccurate.\n");
+
+	/* If we had a large number of windows, we would compute adjacency
+	 * graph representing 2 window overlaps, find all cliques in the graph,
+	 * assign bandwidth to each clique, and then select the clique with
+	 * maximum bandwidth. But because we have at most 3 windows,
+	 * implementing proper Bron-Kerbosh algorithm would be an overkill,
+	 * brute force will suffice.
 	 *
-	 * This function will find the maximum bandwidth of overlapped area.
-	 * If there is no windows overlapped, then return the maximum
-	 * bandwidth of windows.
+	 * Thus: find maximum bandwidth for either single or a pair of windows
+	 * and count number of window pair overlaps. If there are three
+	 * pairs, all 3 window overlap.
 	 */
 
-	/* We know win_2 is always overlapped with win_0 and win_1. */
-	if (tegra_dc_windows_is_overlapped(wins[0], wins[1]))
-		return wins[0]->new_bandwidth + wins[1]->new_bandwidth + wins[2]->new_bandwidth;
-	else
-		return max(wins[0]->new_bandwidth, wins[1]->new_bandwidth) + wins[2]->new_bandwidth;
+	overlap_count = 0;
+	for (i = 0; i < n; i++) {
+		unsigned int bw1;
 
+		if (wins[i] == NULL)
+			continue;
+		bw1 = wins[i]->new_bandwidth;
+		if (bw1 > max_bw)
+			/* Single window */
+			max_bw = bw1;
+
+		for (j = i + 1; j < n; j++) {
+			if (wins[j] == NULL)
+				continue;
+			if (tegra_dc_windows_is_overlapped(wins[i], wins[j])) {
+				unsigned int bw2 = wins[j]->new_bandwidth;
+				if (bw1 + bw2 > max_bw)
+					/* Window pair overlaps */
+					max_bw = bw1 + bw2;
+				overlap_count++;
+			}
+		}
+	}
+
+	if (overlap_count == 3)
+		/* All three windows overlap */
+		max_bw = wins[0]->new_bandwidth + wins[1]->new_bandwidth +
+			 wins[2]->new_bandwidth;
+
+	return max_bw;
 }
 
 
@@ -586,14 +624,24 @@ static unsigned long tegra_dc_calc_win_bandwidth(struct tegra_dc *dc,
 	struct tegra_dc_win *w)
 {
 	unsigned long ret;
+  	unsigned long bpp;
 
 	if (!WIN_IS_ENABLED(w))
 		return 0;
 
+	if (w->w == 0 || w->h == 0 || w->out_w == 0 || w->out_h == 0)
+		return 0;
+
+	/* all of tegra's YUV formats(420 and 422) fetch 2 bytes per pixel,
+         * but the size reported by tegra_dc_fmt_bpp for the planar version
+         * is of the luma plane's size only. */
+        bpp = tegra_dc_is_yuv_planar(w->fmt) ?
+                2 * tegra_dc_fmt_bpp(w->fmt) : tegra_dc_fmt_bpp(w->fmt);
+
 	/* perform calculations with most significant bits of pixel clock
 	 * to prevent overflow of long. */
 	ret = (unsigned long)(dc->mode.pclk >> 16) *
-		(tegra_dc_fmt_bpp(w->fmt) / 8) *
+		bpp / 8 *
 		(WIN_USE_V_FILTER(w) ? 2 : 1) * w->w / w->out_w *
 		(WIN_IS_TILED(w) ? TILED_WINDOWS_BW_MULTIPLIER : 1);
 
@@ -610,19 +658,18 @@ static unsigned long tegra_dc_calc_win_bandwidth(struct tegra_dc *dc,
 	return ret << 16; /* restore the scaling we did above */
 }
 
-static unsigned long tegra_dc_get_bandwidth(struct tegra_dc_win *windows[],
+unsigned long tegra_dc_get_bandwidth(struct tegra_dc_win *windows[],
 	int n)
 {
 	int i;
-	struct tegra_dc *dc;
 
-	dc = windows[0]->dc;
 	BUG_ON(n > DC_N_WINDOWS);
 	/* emc rate and latency allowance both need to know per window
 	 * bandwidths */
 	for (i = 0; i < n; i++) {
 		struct tegra_dc_win *w = windows[i];
-		w->new_bandwidth = tegra_dc_calc_win_bandwidth(dc, w);
+		if (w)
+			w->new_bandwidth = tegra_dc_calc_win_bandwidth(w->dc, w);
 	}
 
 	return tegra_dc_find_max_bandwidth(windows, n);
@@ -684,13 +731,8 @@ int  tegra_dc_set_dynamic_emc(struct tegra_dc_win *windows[], int n)
 	new_rate = tegra_dc_get_bandwidth(windows, n);
         new_rate = EMC_BW_TO_FREQ(new_rate);
 
-        WARN_ONCE(new_rate > tegra_dc_get_default_emc_clk_rate(dc),
-               "Calculated EMC bandwidth is %luHz, "
-               "maximum allowed EMC bandwidth is %luHz\n",
-               new_rate, tegra_dc_get_default_emc_clk_rate(dc));
-
         if (tegra_dc_has_multiple_dc())
-               new_rate = tegra_dc_get_default_emc_clk_rate(dc);
+               new_rate = ULONG_MAX;
 
 	dc->new_emc_clk_rate = new_rate;
 
@@ -1159,6 +1201,10 @@ static int tegra_dc_program_mode(struct tegra_dc *dc, struct tegra_dc_mode *mode
 	unsigned long rate;
 	unsigned long div;
 	unsigned long pclk;
+
+	/* use default EMC rate when switching modes */
+        dc->new_emc_clk_rate = tegra_dc_get_default_emc_clk_rate(dc);
+        tegra_dc_program_bandwidth(dc);
 
 	tegra_dc_writel(dc, 0x0, DC_DISP_DISP_TIMING_OPTIONS);
 	tegra_dc_writel(dc, mode->h_ref_to_sync | (mode->v_ref_to_sync << 16),
@@ -1712,6 +1758,8 @@ void tegra_dc_enable(struct tegra_dc *dc)
 
 static void _tegra_dc_controller_disable(struct tegra_dc *dc)
 {
+	unsigned i;
+
 	disable_irq(dc->irq);
 
 	if (dc->overlay)
@@ -1723,6 +1771,12 @@ static void _tegra_dc_controller_disable(struct tegra_dc *dc)
 	clk_disable(dc->emc_clk);
 	clk_disable(dc->clk);
 	tegra_dvfs_set_rate(dc->clk, 0);
+
+        for (i = 0; i < DC_N_WINDOWS; i++) {
+                struct tegra_dc_win *w = &dc->windows[i];
+                w->bandwidth = 0;
+                w->new_bandwidth = 0;
+        }
 
 	if (dc->out && dc->out->disable)
 		dc->out->disable();
@@ -1842,7 +1896,7 @@ static int tegra_dc_probe(struct nvhost_device *ndev)
 	void __iomem *base;
 	int irq;
 	int i;
-	unsigned long emc_clk_rate;
+///	unsigned long emc_clk_rate;
 
 	if (!ndev->dev.platform_data) {
 		dev_err(&ndev->dev, "no platform data\n");

@@ -418,14 +418,23 @@ surf_err:
 }
 static void tegra_overlay_set_emc_freq(struct tegra_overlay_info *dev)
 {
-	unsigned long emc_freq = 0;
+	unsigned long new_rate;
 	int i;
+	struct tegra_dc_win *win;
+	struct tegra_dc_win *wins[DC_N_WINDOWS];
 
-	for (i = 0; i < dev->dc->n_windows; i++) {
-		if (dev->overlays[i].owner != NULL)
-			emc_freq += dev->dc->mode.pclk*(i==1?2:1)*2;
+	for (i = 0; i < DC_N_WINDOWS; i++) {
+		win = tegra_dc_get_window(dev->dc, i);
+		wins[i] = win;
 	}
-	clk_set_rate(dev->dc->emc_clk, emc_freq);
+
+	new_rate = tegra_dc_get_bandwidth(wins, dev->dc->n_windows);
+	new_rate = EMC_BW_TO_FREQ(new_rate);
+
+	if (tegra_dc_has_multiple_dc())
+		new_rate = ULONG_MAX;
+
+	clk_set_rate(dev->dc->emc_clk, new_rate);
 }
 
 /* Overlay functions */

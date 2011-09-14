@@ -545,7 +545,6 @@ static int tegra_overlay_ioctl_flip(struct overlay_client *client,
 		mutex_unlock(&client->dev->dc->lock);
 		return -EPIPE;
 	}
-
 	mutex_unlock(&client->dev->dc->lock);
 
 	if (copy_from_user(&flip_args, arg, sizeof(flip_args)))

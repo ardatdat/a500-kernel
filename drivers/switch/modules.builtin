@@ -1,0 +1,3 @@
+kernel/drivers/switch/switch_class.ko
+kernel/drivers/switch/dock_switch.ko
+kernel/drivers/switch/rotationlock_switch.ko

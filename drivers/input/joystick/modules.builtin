@@ -1,0 +1,2 @@
+kernel/drivers/input/joystick/analog.ko
+kernel/drivers/input/joystick/xpad.ko

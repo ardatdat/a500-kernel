@@ -1,0 +1,6 @@
+kernel/drivers/media/video/tegra/ov5650.ko
+kernel/drivers/media/video/tegra/ov2710.ko
+kernel/drivers/media/video/tegra/sh532u.ko
+kernel/drivers/media/video/tegra/yuv_sensor.ko
+kernel/drivers/media/video/tegra/ad5820.ko
+kernel/drivers/media/video/tegra/ltc3216.ko

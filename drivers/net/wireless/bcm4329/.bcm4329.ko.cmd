@@ -1,0 +1,1 @@
+cmd_drivers/net/wireless/bcm4329/bcm4329.ko := arm-eabi-ld -EL -r  -T /media/86GB/kernel/hc32-oct04/scripts/module-common.lds --build-id  -o drivers/net/wireless/bcm4329/bcm4329.ko drivers/net/wireless/bcm4329/bcm4329.o drivers/net/wireless/bcm4329/bcm4329.mod.o

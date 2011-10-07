@@ -395,9 +395,9 @@ int __init ventana_panel_init(void)
 	gpio_direction_output(ventana_lvds_shutdown, 1);
 	tegra_gpio_enable(ventana_lvds_shutdown);
 #if defined(CONFIG_MACH_VENTANA)
-	tegra_gpio_enable(ventana_hdmi_enb);
-	gpio_request(ventana_hdmi_enb, "hdmi_5v_en");
-	gpio_direction_output(ventana_hdmi_enb, 1);
+	///tegra_gpio_enable(ventana_hdmi_enb);
+	///gpio_request(ventana_hdmi_enb, "hdmi_5v_en");
+	///gpio_direction_output(ventana_hdmi_enb, 1);
 #endif
 
 	tegra_gpio_enable(ventana_hdmi_hpd);
